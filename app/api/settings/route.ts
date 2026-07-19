@@ -43,8 +43,7 @@ export async function PUT(req: NextRequest) {
     "lateAlerts",
   ] as const;
 
-  type SettingsKey = typeof allowed[number];
-  const data: Partial<Record<SettingsKey, unknown>> = {};
+  const data: any = {};
   for (const key of allowed) {
     if (key in body) data[key] = body[key];
   }
