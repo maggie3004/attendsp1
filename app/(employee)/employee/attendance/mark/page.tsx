@@ -2,6 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import * as faceapi from "@vladmandic/face-api";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Camera, MapPin, CheckCircle2, XCircle, ArrowLeft,
@@ -24,6 +26,53 @@ export default function MarkAttendancePage() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
+  const { data: session } = useSession();
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [faceDescriptor, setFaceDescriptor] = useState<Float32Array | null>(null);
+
+  // Load face-api models on mount
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        await Promise.all([
+          faceapi.nets.ssdMobilenetv1.loadFromUri("/models"),
+          faceapi.nets.faceLandmark68Net.loadFromUri("/models"),
+          faceapi.nets.faceRecognitionNet.loadFromUri("/models"),
+        ]);
+        setModelsLoaded(true);
+      } catch (err) {
+        console.error("Failed to load face-api models", err);
+      }
+    };
+    loadModels();
+  }, []);
+
+  // Fetch employee profile and process reference face image
+  useEffect(() => {
+    if (session?.user?.employeeId && modelsLoaded) {
+      fetch(`/api/employees/${session.user.employeeId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.data.faceImage) {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = data.data.faceImage;
+            img.onload = async () => {
+              try {
+                const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+                if (detection) {
+                  setFaceDescriptor(detection.descriptor);
+                }
+              } catch (err) {
+                console.error("Error processing reference image:", err);
+              }
+            };
+          }
+        })
+        .catch(console.error);
+    }
+  }, [session, modelsLoaded]);
+
   const startCamera = useCallback(async () => {
     setcameraError(null);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -44,8 +93,8 @@ export default function MarkAttendancePage() {
     }
   }, []);
 
-  // Step 2: Capture Face
-  const captureImage = useCallback(() => {
+  // Step 2: Capture Face & Validate
+  const captureImage = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current) return;
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -59,8 +108,44 @@ export default function MarkAttendancePage() {
 
     // Stop the stream
     streamRef.current?.getTracks().forEach((track) => track.stop());
+
+    // Switch to processing step for facial recognition
+    setStep("processing");
+
+    // Face Recognition Validation
+    if (modelsLoaded) {
+      if (!faceDescriptor) {
+        setErrorMessage("No registered face profile found. Please contact Admin.");
+        setStep("error");
+        return;
+      }
+
+      try {
+        const img = new Image();
+        img.src = imageData;
+        await new Promise((resolve) => { img.onload = resolve; });
+
+        const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+        
+        if (!detection) {
+          setErrorMessage("No face detected in the photo. Please try again.");
+          setStep("error");
+          return;
+        }
+
+        const distance = faceapi.euclideanDistance(detection.descriptor, faceDescriptor);
+        if (distance > 0.5) {
+          setErrorMessage("Face does not match your registered profile.");
+          setStep("error");
+          return;
+        }
+      } catch (err) {
+        console.error("Face recognition error:", err);
+      }
+    }
+
     setStep("location");
-  }, []);
+  }, [modelsLoaded, faceDescriptor]);
 
   // Step 3: Get Location
   const getLocation = useCallback(() => {

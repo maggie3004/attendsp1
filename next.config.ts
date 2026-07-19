@@ -15,6 +15,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+    };
+    config.ignoreWarnings = [
+      { module: /@vladmandic\/face-api/ }
+    ];
+    return config;
+  },
 };
 
 export default nextConfig;

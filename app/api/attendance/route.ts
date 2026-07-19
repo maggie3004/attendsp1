@@ -4,6 +4,22 @@ import { prisma } from "@/lib/prisma";
 import { markAttendanceSchema } from "@/lib/validators";
 import { startOfDay, endOfDay } from "date-fns";
 
+// Haversine formula to calculate distance in meters between two GPS coordinates
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // Earth radius in meters
+  const p1 = (lat1 * Math.PI) / 180;
+  const p2 = (lat2 * Math.PI) / 180;
+  const dp = ((lat2 - lat1) * Math.PI) / 180;
+  const dl = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(dp / 2) * Math.sin(dp / 2) +
+    Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
 // GET /api/attendance
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -104,6 +120,39 @@ export async function POST(req: NextRequest) {
   const lateThreshold = new Date(today);
   lateThreshold.setHours(9, 30, 0);
   const isLate = today > lateThreshold;
+
+  // Strict GPS Validation
+  if (!parsed.data.siteId) {
+    return NextResponse.json({ error: "No site assigned. Please contact your admin." }, { status: 400 });
+  }
+
+  const site = await prisma.site.findUnique({
+    where: { id: parsed.data.siteId },
+  });
+
+  if (!site) {
+    return NextResponse.json({ error: "Assigned site not found." }, { status: 404 });
+  }
+
+  if (site.latitude && site.longitude) {
+    if (!parsed.data.checkInLat || !parsed.data.checkInLng) {
+      return NextResponse.json({ error: "GPS location is required to mark attendance." }, { status: 400 });
+    }
+
+    const distance = getDistance(
+      parsed.data.checkInLat,
+      parsed.data.checkInLng,
+      site.latitude,
+      site.longitude
+    );
+
+    if (distance > site.radius) {
+      return NextResponse.json(
+        { error: `Too far away. You are ${Math.round(distance)}m from the site, but must be within ${site.radius}m.` },
+        { status: 403 }
+      );
+    }
+  }
 
   const attendance = await prisma.attendance.create({
     data: {
