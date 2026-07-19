@@ -3,8 +3,10 @@ import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { loginSchema } from "@/lib/validators";
+import { authConfig } from "./auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       name: "credentials",
@@ -58,41 +60,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.role = (user as { role?: string }).role;
-        token.employeeId = (user as { employeeId?: string }).employeeId;
-        token.employeeCode = (user as { employeeCode?: string }).employeeCode;
-        token.designation = (user as { designation?: string }).designation;
-        token.department = (user as { department?: string }).department;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
-        session.user.employeeId = token.employeeId as string;
-        session.user.employeeCode = token.employeeCode as string;
-        session.user.designation = token.designation as string;
-        session.user.department = token.department as string;
-      }
-      return session;
-    },
-  },
-
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
-
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-
-  secret: process.env.AUTH_SECRET,
 });
