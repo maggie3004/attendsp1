@@ -33,10 +33,12 @@ export default function TopNavbar({ sidebarCollapsed, onMobileMenuToggle }: TopN
 
   const getBreadcrumb = () => {
     const segments = pathname.split("/").filter(Boolean);
-    return segments
-      .slice(1)
-      .map((s) => s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, " "))
-      .join(" › ");
+    // Skip "admin" prefix and filter out raw IDs (cuid/uuid — long alphanum strings with no spaces)
+    const cleaned = segments
+      .slice(1) // remove "admin"
+      .filter((s) => !/^[a-z0-9]{20,}$/i.test(s)) // skip cuid/uuid segments
+      .map((s) => s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, " "));
+    return cleaned.join(" › ");
   };
 
   const name = session?.user?.name ?? "Admin";

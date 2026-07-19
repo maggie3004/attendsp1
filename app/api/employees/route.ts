@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
 
   const { name, email, password, designation, department, phone, address, siteId, joinDate } =
     parsed.data;
+  const profileImage: string | null | undefined = body.profileImage;
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
@@ -94,6 +95,7 @@ export async function POST(req: NextRequest) {
       email,
       password: hashedPassword,
       role: "EMPLOYEE",
+      image: profileImage || null,
       employee: {
         create: {
           employeeCode,
@@ -101,6 +103,7 @@ export async function POST(req: NextRequest) {
           department,
           phone,
           address,
+          faceImage: profileImage || null,
           joinDate: joinDate ? new Date(joinDate) : new Date(),
           ...(siteId && {
             siteEmployees: {

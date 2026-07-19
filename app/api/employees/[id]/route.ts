@@ -55,6 +55,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const { name, email, designation, department, phone, address, status } = parsed.data;
+  const profileImage: string | null | undefined = body.profileImage;
 
   const employee = await prisma.employee.findUnique({
     where: { id },
@@ -69,11 +70,24 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const updated = await prisma.$transaction([
     prisma.user.update({
       where: { id: employee.userId },
-      data: { name, email },
+      data: {
+        name,
+        email,
+        // Only update image if explicitly passed (null = remove, string = new url, undefined = unchanged)
+        ...(profileImage !== undefined && { image: profileImage }),
+      },
     }),
     prisma.employee.update({
       where: { id },
-      data: { designation, department, phone, address, ...(status && { status }) },
+      data: {
+        designation,
+        department,
+        phone,
+        address,
+        ...(status && { status }),
+        // Also update faceImage for attendance comparison
+        ...(profileImage !== undefined && { faceImage: profileImage }),
+      },
     }),
   ]);
 

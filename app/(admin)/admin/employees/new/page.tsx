@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -10,6 +11,8 @@ import { UserPlus, Upload, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { createEmployeeSchema, CreateEmployeeInput } from "@/lib/validators";
 import PageHeader from "@/components/shared/PageHeader";
+import { Camera, Image as ImageIcon, X } from "lucide-react";
+import CameraCaptureModal from "@/components/shared/CameraCaptureModal";
 
 interface Site {
   id: string;
@@ -23,6 +26,9 @@ export default function NewEmployeePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -66,6 +72,29 @@ export default function NewEmployeePage() {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleCameraCapture = async (base64: string) => {
+    setShowCamera(false);
+    setUploadingImage(true);
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file: base64, folder: "profiles" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProfileImage(data.data.url);
+        toast.success("Photo updated");
+      } else {
+        toast.error("Upload failed");
+      }
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const onSubmit = async (data: CreateEmployeeInput) => {
@@ -117,24 +146,79 @@ export default function NewEmployeePage() {
               <Upload className="w-6 h-6 text-neutral-400" />
             )}
           </div>
-          <div>
-            <label
-              htmlFor="profile-upload"
-              className="btn-secondary btn-sm cursor-pointer"
-            >
-              {uploadingImage ? "Uploading..." : "Upload Photo"}
-            </label>
+          <div className="flex flex-col gap-2 relative">
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowOptions(!showOptions)}
+                  className="btn-secondary btn-sm inline-flex items-center gap-2"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  {uploadingImage ? "Uploading..." : "Add Photo"}
+                </button>
+
+                {showOptions && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowOptions(false)} />
+                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-border shadow-modal rounded-xl overflow-hidden z-20">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowOptions(false);
+                          setShowCamera(true);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-text-primary hover:bg-neutral-50 flex items-center gap-2"
+                      >
+                        <Camera className="w-4 h-4 text-text-muted" />
+                        Take Photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowOptions(false);
+                          fileInputRef.current?.click();
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-text-primary hover:bg-neutral-50 flex items-center gap-2"
+                      >
+                        <ImageIcon className="w-4 h-4 text-text-muted" />
+                        Upload Photo
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {profileImage && (
+                <button
+                  type="button"
+                  onClick={() => setProfileImage(null)}
+                  className="btn-ghost btn-sm text-danger-500 hover:text-danger-600 inline-flex items-center gap-2 px-2"
+                  title="Remove Photo"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-text-muted mt-1.5">JPG, PNG up to 5MB</p>
+
             <input
-              id="profile-upload"
+              ref={fileInputRef}
               type="file"
               accept="image/*"
               className="hidden"
               onChange={handleImageUpload}
               disabled={uploadingImage}
             />
-            <p className="text-xs text-text-muted mt-1.5">JPG, PNG up to 5MB</p>
           </div>
         </div>
+
+        {showCamera && (
+          <CameraCaptureModal
+            onCapture={handleCameraCapture}
+            onClose={() => setShowCamera(false)}
+          />
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           {/* Personal Info */}
