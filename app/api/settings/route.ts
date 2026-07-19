@@ -43,6 +43,7 @@ export async function PUT(req: NextRequest) {
     "lateAlerts",
   ] as const;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = {};
   for (const key of allowed) {
     if (key in body) data[key] = body[key];
