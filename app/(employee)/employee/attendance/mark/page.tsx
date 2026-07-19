@@ -37,9 +37,10 @@ export default function MarkAttendancePage() {
       });
       streamRef.current = stream;
       setStep("capture");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Camera error:", err);
-      setcameraError(err?.message || "Camera access denied. Please allow camera access to mark attendance.");
+      const errorMessage = err instanceof Error ? err.message : "Camera access denied.";
+      setcameraError(errorMessage || "Camera access denied. Please allow camera access to mark attendance.");
     }
   }, []);
 
@@ -212,7 +213,7 @@ export default function MarkAttendancePage() {
                     if (node && streamRef.current) {
                       node.srcObject = streamRef.current;
                     }
-                    // @ts-ignore
+                    // @ts-expect-error - callback ref type mismatch
                     videoRef.current = node;
                   }}
                   autoPlay
