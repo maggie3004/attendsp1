@@ -213,7 +213,6 @@ export default function MarkAttendancePage() {
                     if (node && streamRef.current) {
                       node.srcObject = streamRef.current;
                     }
-                    // @ts-expect-error - callback ref type mismatch
                     videoRef.current = node;
                   }}
                   autoPlay
