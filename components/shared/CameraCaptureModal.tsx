@@ -44,12 +44,19 @@ export default function CameraCaptureModal({ onCapture, onClose }: CameraCapture
 
   const capture = () => {
     if (!videoRef.current) return;
+    const video = videoRef.current;
     const canvas = document.createElement("canvas");
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
     if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0);
+      // Mirror horizontally so the saved image matches the selfie orientation
+      // (front cameras display mirrored — we capture mirrored to stay consistent
+      // with how the attendance photo is also captured in MarkAttendanceClient)
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+      ctx.restore();
       const base64 = canvas.toDataURL("image/jpeg", 0.9);
       stopCamera();
       onCapture(base64);
@@ -80,6 +87,8 @@ export default function CameraCaptureModal({ onCapture, onClose }: CameraCapture
                 autoPlay
                 playsInline
                 muted
+                // Mirror visually so user sees natural selfie view
+                style={{ transform: "scaleX(-1)" }}
                 className="w-full h-full object-cover rounded-xl"
               />
               {/* Face Guide Overlay */}

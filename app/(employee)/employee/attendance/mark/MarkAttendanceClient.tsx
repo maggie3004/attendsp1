@@ -9,77 +9,124 @@ import {
   Camera, MapPin, CheckCircle2, XCircle, ArrowLeft,
   RefreshCw, Scan, Navigation, Loader2,
 } from "lucide-react";
-import { toast } from "sonner";
 
 type Step = "camera" | "capture" | "location" | "processing" | "success" | "error";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+// TinyFaceDetector options: faster, smaller model (193 KB vs 5.6 MB)
+const TINY_OPTS = new faceapi.TinyFaceDetectorOptions({
+  inputSize: 224,      // 160 | 224 | 320 | 416 | 512 — 224 is fastest that still works well
+  scoreThreshold: 0.4, // lower = more sensitive to finding a face at all
+});
+
+// Euclidean distance threshold — 0.6 is the face-api recommended value
+// 0.5 was too strict (false negatives from lighting / angle changes)
+const MATCH_THRESHOLD = 0.6;
+
+// Capture at a small size to speed up face-api processing
+const CAPTURE_WIDTH = 320;
+const CAPTURE_HEIGHT = 240;
 
 export default function MarkAttendancePage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Keep capturedImage in a ref so submitAttendance can always read the latest value
+  const capturedImageRef = useRef<string | null>(null);
 
   const [step, setStep] = useState<Step>("camera");
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [cameraError, setcameraError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [loadingStatus, setLoadingStatus] = useState<string>("Loading face models...");
 
   const { data: session } = useSession();
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [faceDescriptor, setFaceDescriptor] = useState<Float32Array | null>(null);
+  const faceDescriptorRef = useRef<Float32Array | null>(null);
 
-  // Load face-api models on mount
+  // ─── 1. Load face-api models ─────────────────────────────────────────────
+  // Use TinyFaceDetector (193 KB) instead of SSD MobileNet (5.6 MB) for speed
   useEffect(() => {
     const loadModels = async () => {
       try {
         await Promise.all([
-          faceapi.nets.ssdMobilenetv1.loadFromUri("/models"),
-          faceapi.nets.faceLandmark68Net.loadFromUri("/models"),
+          faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
+          faceapi.nets.faceLandmark68TinyNet.loadFromUri("/models"),
           faceapi.nets.faceRecognitionNet.loadFromUri("/models"),
         ]);
         setModelsLoaded(true);
+        setLoadingStatus("");
       } catch (err) {
         console.error("Failed to load face-api models", err);
+        setLoadingStatus("⚠️ Face models failed to load");
       }
     };
     loadModels();
   }, []);
 
-  // Fetch employee profile and process reference face image
+  // ─── 2. Compute reference face descriptor from profile image ─────────────
   useEffect(() => {
-    if (session?.user?.employeeId && modelsLoaded) {
-      fetch(`/api/employees/${session.user.employeeId}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.data.faceImage) {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.src = data.data.faceImage;
-            img.onload = async () => {
-              try {
-                const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
-                if (detection) {
-                  setFaceDescriptor(detection.descriptor);
-                }
-              } catch (err) {
-                console.error("Error processing reference image:", err);
-              }
-            };
+    if (!session?.user?.employeeId || !modelsLoaded) return;
+
+    setLoadingStatus("Loading your face profile...");
+    fetch(`/api/employees/${session.user.employeeId}`)
+      .then((res) => res.json())
+      .then(async (data) => {
+        const faceImageUrl: string | null = data?.data?.faceImage ?? null;
+        if (!data.success || !faceImageUrl) {
+          setLoadingStatus("⚠️ No face profile found. Contact admin.");
+          return;
+        }
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = faceImageUrl;
+
+        img.onload = async () => {
+          try {
+            // Resize to a small canvas first so face-api is faster
+            const offscreen = document.createElement("canvas");
+            offscreen.width = 320;
+            offscreen.height = 240;
+            const ctx = offscreen.getContext("2d");
+            if (!ctx) return;
+            ctx.drawImage(img, 0, 0, 320, 240);
+
+            const detection = await faceapi
+              .detectSingleFace(offscreen, TINY_OPTS)
+              .withFaceLandmarks(true)   // true = use tiny landmarks model
+              .withFaceDescriptor();
+
+            if (detection) {
+              faceDescriptorRef.current = detection.descriptor;
+              setFaceDescriptor(detection.descriptor);
+              setLoadingStatus("");
+            } else {
+              setLoadingStatus("⚠️ Could not read face from profile image.");
+            }
+          } catch (err) {
+            console.error("Error processing reference image:", err);
+            setLoadingStatus("⚠️ Error reading face profile.");
           }
-        })
-        .catch(console.error);
-    }
+        };
+
+        img.onerror = () => {
+          setLoadingStatus("⚠️ Could not load profile image (CORS?).");
+        };
+      })
+      .catch(() => setLoadingStatus("⚠️ Failed to fetch employee profile."));
   }, [session, modelsLoaded]);
 
+  // ─── 3. Open Camera ────────────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
     setcameraError(null);
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       setcameraError("Your browser does not support camera access (HTTPS is required).");
       return;
     }
-    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
@@ -87,96 +134,100 @@ export default function MarkAttendancePage() {
       streamRef.current = stream;
       setStep("capture");
     } catch (err: unknown) {
-      console.error("Camera error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Camera access denied.";
-      setcameraError(errorMessage || "Camera access denied. Please allow camera access to mark attendance.");
+      const msg = err instanceof Error ? err.message : "Camera access denied.";
+      setcameraError(msg || "Camera access denied. Please allow camera access.");
     }
   }, []);
 
-  // Step 2: Capture Face & Validate
+  // ─── 4. Capture & Validate Face ───────────────────────────────────────────
   const captureImage = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current) return;
+
     const canvas = canvasRef.current;
     const video = videoRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+
+    // Capture at a small, fixed resolution to speed up face detection
+    canvas.width = CAPTURE_WIDTH;
+    canvas.height = CAPTURE_HEIGHT;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.drawImage(video, 0, 0);
-    const imageData = canvas.toDataURL("image/jpeg", 0.8);
+
+    // ── Mirror fix: front cameras display mirrored but drawImage is NOT mirrored.
+    // We need to flip horizontally so the captured face geometry matches the
+    // profile image which was also captured from a front camera (and saved mirrored).
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -CAPTURE_WIDTH, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
+    ctx.restore();
+
+    const imageData = canvas.toDataURL("image/jpeg", 0.85);
+    capturedImageRef.current = imageData;
     setCapturedImage(imageData);
 
-    // Stop the stream
+    // Stop the live stream
     streamRef.current?.getTracks().forEach((track) => track.stop());
 
-    // Switch to processing step for facial recognition
+    // Switch to processing immediately for visual feedback
     setStep("processing");
 
-    // Face Recognition Validation
-    if (modelsLoaded) {
-      if (!faceDescriptor) {
-        setErrorMessage("No registered face profile found. Please contact Admin.");
+    // ── Face recognition ──
+    if (!modelsLoaded) {
+      // Models not loaded — skip validation and proceed
+      setStep("location");
+      return;
+    }
+
+    const descriptor = faceDescriptorRef.current;
+    if (!descriptor) {
+      setErrorMessage("No face profile registered. Please contact your admin.");
+      setStep("error");
+      return;
+    }
+
+    try {
+      const img = new Image();
+      img.src = imageData;
+      await new Promise<void>((resolve) => { img.onload = () => resolve(); });
+
+      const detection = await faceapi
+        .detectSingleFace(img, TINY_OPTS)
+        .withFaceLandmarks(true)
+        .withFaceDescriptor();
+
+      if (!detection) {
+        setErrorMessage("No face detected in the photo. Please ensure your face is clearly visible and try again.");
         setStep("error");
         return;
       }
 
-      try {
-        const img = new Image();
-        img.src = imageData;
-        await new Promise((resolve) => { img.onload = resolve; });
+      const distance = faceapi.euclideanDistance(detection.descriptor, descriptor);
+      console.log(`[FaceRecog] distance=${distance.toFixed(3)} threshold=${MATCH_THRESHOLD}`);
 
-        const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
-        
-        if (!detection) {
-          setErrorMessage("No face detected in the photo. Please try again.");
-          setStep("error");
-          return;
-        }
-
-        const distance = faceapi.euclideanDistance(detection.descriptor, faceDescriptor);
-        if (distance > 0.5) {
-          setErrorMessage("Face does not match your registered profile.");
-          setStep("error");
-          return;
-        }
-      } catch (err) {
-        console.error("Face recognition error:", err);
+      if (distance > MATCH_THRESHOLD) {
+        setErrorMessage("Face does not match your registered profile. Please try again in good lighting.");
+        setStep("error");
+        return;
       }
+    } catch (err) {
+      console.error("Face recognition error:", err);
+      // On unexpected error, fail open (don't block the employee)
     }
 
     setStep("location");
-  }, [modelsLoaded, faceDescriptor]);
+  }, [modelsLoaded]);
 
-  // Step 3: Get Location
-  const getLocation = useCallback(() => {
-    setLocationError(null);
-    if (!navigator.geolocation) {
-      setLocationError("Geolocation is not supported by your device.");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        submitAttendance(pos.coords.latitude, pos.coords.longitude);
-      },
-      (err) => {
-        setLocationError("Location access denied. Please enable location to proceed.");
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-    setStep("processing");
-  }, [capturedImage]);
-
-  // Step 4: Submit
-  const submitAttendance = async (lat: number, lng: number) => {
+  // ─── 5. Get Location & Submit ─────────────────────────────────────────────
+  const submitAttendance = useCallback(async (lat: number, lng: number) => {
     try {
-      // Upload face image
+      const image = capturedImageRef.current;
       let imageUrl: string | null = null;
-      if (capturedImage) {
+
+      if (image) {
         const uploadRes = await fetch("/api/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ file: capturedImage, folder: "attendance" }),
+          body: JSON.stringify({ file: image, folder: "attendance" }),
         });
         const uploadData = await uploadRes.json();
         if (uploadData.success) imageUrl = uploadData.data.url;
@@ -185,15 +236,10 @@ export default function MarkAttendancePage() {
       const res = await fetch("/api/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          checkInImage: imageUrl,
-          checkInLat: lat,
-          checkInLng: lng,
-        }),
+        body: JSON.stringify({ checkInImage: imageUrl, checkInLat: lat, checkInLng: lng }),
       });
 
       const data = await res.json();
-
       if (data.success) {
         setStep("success");
       } else {
@@ -204,14 +250,35 @@ export default function MarkAttendancePage() {
       setErrorMessage("Network error. Please try again.");
       setStep("error");
     }
-  };
+  }, []);
 
-  const retake = () => {
+  const getLocation = useCallback(() => {
+    setLocationError(null);
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your device.");
+      return;
+    }
+    setStep("processing");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        submitAttendance(pos.coords.latitude, pos.coords.longitude);
+      },
+      () => {
+        setLocationError("Location access denied. Please enable location to proceed.");
+        setStep("location");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [submitAttendance]);
+
+  const retake = useCallback(() => {
     setCapturedImage(null);
+    capturedImageRef.current = null;
     setStep("camera");
     startCamera();
-  };
+  }, [startCamera]);
 
+  // ─── UI ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -225,7 +292,21 @@ export default function MarkAttendancePage() {
         >
           <ArrowLeft className="w-5 h-5 text-text-primary" />
         </button>
-        <h1 className="text-lg font-bold text-text-primary font-display">Mark Attendance</h1>
+        <div className="flex-1">
+          <h1 className="text-lg font-bold text-text-primary font-display">Mark Attendance</h1>
+          {loadingStatus && (
+            <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1">
+              {loadingStatus.startsWith("⚠️") ? (
+                <span className="text-amber-500">{loadingStatus}</span>
+              ) : (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  {loadingStatus}
+                </>
+              )}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Progress Steps */}
@@ -253,6 +334,7 @@ export default function MarkAttendancePage() {
       {/* Step Content */}
       <div className="flex-1 px-4">
         <AnimatePresence mode="wait">
+
           {/* Step: Allow Camera */}
           {step === "camera" && (
             <motion.div
@@ -276,9 +358,13 @@ export default function MarkAttendancePage() {
                   <p className="text-sm text-danger-700 text-center">{cameraError}</p>
                 </div>
               )}
-              <button onClick={startCamera} className="mobile-btn-primary max-w-xs">
+              <button
+                onClick={startCamera}
+                disabled={!modelsLoaded}
+                className="mobile-btn-primary max-w-xs disabled:opacity-60 disabled:cursor-wait"
+              >
                 <Camera className="w-5 h-5" />
-                Open Camera
+                {modelsLoaded ? "Open Camera" : "Loading models..."}
               </button>
             </motion.div>
           )}
@@ -303,16 +389,18 @@ export default function MarkAttendancePage() {
                   autoPlay
                   playsInline
                   muted
+                  // Mirror the video visually so the user sees a natural selfie view
+                  style={{ transform: "scaleX(-1)" }}
                   className="w-full h-full object-cover"
                 />
                 {/* Face guide overlay */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-48 h-56 border-4 border-white/60 rounded-full" />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-48 h-56 border-4 border-white/60 rounded-[40%] shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
                 </div>
                 <div className="absolute bottom-4 left-4 right-4 bg-black/40 backdrop-blur-sm rounded-xl px-3 py-2">
                   <p className="text-white text-xs text-center flex items-center justify-center gap-1.5">
                     <Scan className="w-3.5 h-3.5" />
-                    Position your face in the circle
+                    Position your face in the oval and tap Capture
                   </p>
                 </div>
               </div>
@@ -339,7 +427,7 @@ export default function MarkAttendancePage() {
                   <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
                   <div className="absolute top-3 right-3 bg-success-500 text-white text-xs px-2.5 py-1 rounded-full flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" />
-                    Photo Captured
+                    Face Verified ✓
                   </div>
                   <button
                     onClick={retake}
@@ -358,7 +446,7 @@ export default function MarkAttendancePage() {
                 <div>
                   <h2 className="text-lg font-bold text-text-primary">Verify Location</h2>
                   <p className="text-sm text-text-secondary mt-1">
-                    Allow location access to verify you're at your assigned site.
+                    Allow location access to verify you&apos;re at your assigned site.
                   </p>
                 </div>
                 {locationError && (
@@ -370,7 +458,7 @@ export default function MarkAttendancePage() {
 
               <button onClick={getLocation} className="mobile-btn-primary">
                 <MapPin className="w-5 h-5" />
-                Allow Location & Submit
+                Allow Location &amp; Submit
               </button>
             </motion.div>
           )}
@@ -392,11 +480,11 @@ export default function MarkAttendancePage() {
               <div className="text-center">
                 <h2 className="text-xl font-bold text-text-primary">Processing...</h2>
                 <p className="text-text-secondary text-sm mt-1">
-                  Uploading and recording your attendance
+                  Verifying your face and recording attendance
                 </p>
               </div>
               <div className="space-y-2 w-full max-w-xs">
-                {["Uploading face image...", "Verifying location...", "Recording attendance..."].map((msg, i) => (
+                {["Verifying face...", "Checking location...", "Recording attendance..."].map((msg, i) => (
                   <motion.div
                     key={msg}
                     initial={{ opacity: 0, x: -8 }}
@@ -480,7 +568,7 @@ export default function MarkAttendancePage() {
                 <XCircle className="w-14 h-14 text-danger-500" />
               </div>
               <div className="text-center">
-                <h2 className="text-xl font-bold text-text-primary">Failed to Mark</h2>
+                <h2 className="text-xl font-bold text-text-primary">Verification Failed</h2>
                 <p className="text-text-secondary text-sm mt-2 max-w-xs">{errorMessage}</p>
               </div>
               <div className="flex flex-col gap-3 w-full">
