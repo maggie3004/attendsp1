@@ -199,3 +199,26 @@ model Notification {
 
   @@map("notifications")
 }
+
+model SystemSettings {
+  id                String   @id @default("global")
+
+  // Company
+  companyName       String   @default("AttendSP Construction")
+  workStartTime     String   @default("09:00") // HH:mm
+  workEndTime       String   @default("18:00") // HH:mm
+  lateThresholdMins Int      @default(30)
+
+  // Attendance
+  geofenceEnabled   Boolean  @default(true)
+  faceCaptureEnabled Boolean @default(true)
+  autoMarkAbsent    Boolean  @default(false)
+
+  // Notifications
+  leaveAlerts       Boolean  @default(true)
+  lateAlerts        Boolean  @default(true)
+
+  updatedAt         DateTime @updatedAt
+
+  @@map("system_settings")
+}

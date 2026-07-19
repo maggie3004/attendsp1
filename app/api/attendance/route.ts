@@ -116,41 +116,51 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Determine if late (after 9:30 AM)
-  const lateThreshold = new Date(today);
-  lateThreshold.setHours(9, 30, 0);
-  const isLate = today > lateThreshold;
-
-  // Strict GPS Validation
-  if (!parsed.data.siteId) {
-    return NextResponse.json({ error: "No site assigned. Please contact your admin." }, { status: 400 });
-  }
-
-  const site = await prisma.site.findUnique({
-    where: { id: parsed.data.siteId },
+  // Load system settings (singleton)
+  const sysSettings = await prisma.systemSettings.upsert({
+    where: { id: "global" },
+    create: { id: "global" },
+    update: {},
   });
 
-  if (!site) {
-    return NextResponse.json({ error: "Assigned site not found." }, { status: 404 });
-  }
+  // Determine if late using configured work start time + threshold
+  const [startHour, startMin] = sysSettings.workStartTime.split(":").map(Number);
+  const lateThreshold = new Date(today);
+  lateThreshold.setHours(startHour, startMin + sysSettings.lateThresholdMins, 0, 0);
+  const isLate = today > lateThreshold;
 
-  if (site.latitude && site.longitude) {
-    if (!parsed.data.checkInLat || !parsed.data.checkInLng) {
-      return NextResponse.json({ error: "GPS location is required to mark attendance." }, { status: 400 });
+  // GPS Validation — only enforce if geofence is enabled in settings
+  if (sysSettings.geofenceEnabled) {
+    if (!parsed.data.siteId) {
+      return NextResponse.json({ error: "No site assigned. Please contact your admin." }, { status: 400 });
     }
 
-    const distance = getDistance(
-      parsed.data.checkInLat,
-      parsed.data.checkInLng,
-      site.latitude,
-      site.longitude
-    );
+    const site = await prisma.site.findUnique({
+      where: { id: parsed.data.siteId },
+    });
 
-    if (distance > site.radius) {
-      return NextResponse.json(
-        { error: `Too far away. You are ${Math.round(distance)}m from the site, but must be within ${site.radius}m.` },
-        { status: 403 }
+    if (!site) {
+      return NextResponse.json({ error: "Assigned site not found." }, { status: 404 });
+    }
+
+    if (site.latitude && site.longitude) {
+      if (!parsed.data.checkInLat || !parsed.data.checkInLng) {
+        return NextResponse.json({ error: "GPS location is required to mark attendance." }, { status: 400 });
+      }
+
+      const distance = getDistance(
+        parsed.data.checkInLat,
+        parsed.data.checkInLng,
+        site.latitude,
+        site.longitude
       );
+
+      if (distance > site.radius) {
+        return NextResponse.json(
+          { error: `Too far away. You are ${Math.round(distance)}m from the site, but must be within ${site.radius}m.` },
+          { status: 403 }
+        );
+      }
     }
   }
 
