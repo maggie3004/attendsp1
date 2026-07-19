@@ -78,8 +78,10 @@ function StatCard({ label, value, icon: Icon, color, bgColor, change, href }: St
 export default function AdminDashboardClient() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     fetch("/api/dashboard/stats")
       .then((r) => r.json())
       .then((res) => {
@@ -88,15 +90,15 @@ export default function AdminDashboardClient() {
       .finally(() => setLoading(false));
   }, []);
 
-  const today = format(new Date(), "EEEE, dd MMMM yyyy");
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary font-display">Dashboard</h1>
-          <p className="text-sm text-text-secondary mt-0.5">{today}</p>
+          <p className="text-sm text-text-secondary mt-0.5 h-5">
+            {mounted ? format(new Date(), "EEEE, dd MMMM yyyy") : ""}
+          </p>
         </div>
         <div className="flex gap-3">
           <Link href="/admin/employees/new" className="btn-primary btn-md">
