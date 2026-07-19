@@ -51,8 +51,11 @@ interface StatCardProps {
 function StatCard({ label, value, icon: Icon, color, bgColor, change, href }: StatCardProps) {
   const content = (
     <div className="card h-full hover:shadow-card-hover transition-all duration-200 cursor-pointer group flex flex-col justify-between">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1">
+      <div className="relative">
+        <div className={`absolute top-0 right-0 w-8 h-8 shrink-0 ${bgColor} rounded-lg flex items-center justify-center`}>
+          <Icon className={`w-4 h-4 ${color}`} />
+        </div>
+        <div className="pr-10">
           <p className="text-sm text-text-secondary font-medium leading-tight">{label}</p>
           <p className="text-3xl font-bold text-text-primary mt-2 font-display">{value}</p>
           {change && (
@@ -61,9 +64,6 @@ function StatCard({ label, value, icon: Icon, color, bgColor, change, href }: St
               {change}
             </p>
           )}
-        </div>
-        <div className={`w-11 h-11 shrink-0 ${bgColor} rounded-xl flex items-center justify-center`}>
-          <Icon className={`w-5 h-5 ${color}`} />
         </div>
       </div>
     </div>

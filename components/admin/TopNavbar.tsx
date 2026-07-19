@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Bell, Search, User, ChevronDown, Menu } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,18 @@ export default function TopNavbar({ sidebarCollapsed, onMobileMenuToggle }: TopN
   const pathname = usePathname();
   const { data: session } = useSession();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/notifications?pageSize=1")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setUnreadCount(data.unreadCount || 0);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   const getBreadcrumb = () => {
     const segments = pathname.split("/").filter(Boolean);
@@ -64,7 +76,9 @@ export default function TopNavbar({ sidebarCollapsed, onMobileMenuToggle }: TopN
           aria-label="Notifications"
         >
           <Bell className="w-5 h-5 text-text-secondary" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-danger-500 rounded-full" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-danger-500 rounded-full" />
+          )}
         </Link>
 
         {/* Profile Dropdown */}
