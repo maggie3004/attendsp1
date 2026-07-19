@@ -34,7 +34,8 @@ export default function TopNavbar({ sidebarCollapsed, onMobileMenuToggle }: TopN
       className={cn(
         "fixed top-0 right-0 h-16 bg-white/95 backdrop-blur-sm border-b border-border z-20",
         "flex items-center px-6 gap-4 transition-all duration-250",
-        sidebarCollapsed ? "left-[72px]" : "left-[260px]"
+        "left-0 lg:left-[260px]",
+        sidebarCollapsed && "lg:left-[72px]"
       )}
     >
       {/* Mobile Menu */}

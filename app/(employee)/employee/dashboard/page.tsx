@@ -39,6 +39,11 @@ export default function EmployeeDashboard() {
   const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>([]);
   const [assignedSite, setAssignedSite] = useState<AssignedSite | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Live clock
   useEffect(() => {
@@ -51,17 +56,24 @@ export default function EmployeeDashboard() {
     const fetchData = async () => {
       try {
         const [attendRes, siteRes] = await Promise.all([
-          fetch(`/api/attendance?pageSize=10&employeeId=${session.user.employeeId}`),
-          fetch(`/api/employees/${session.user.employeeId}`),
+          fetch(`/api/attendance?pageSize=10&employeeId=${session.user.employeeId}`, { cache: "no-store" }),
+          fetch(`/api/employees/${session.user.employeeId}`, { cache: "no-store" }),
         ]);
         const [attendData, empData] = await Promise.all([attendRes.json(), siteRes.json()]);
 
         if (attendData.success) {
           const records: AttendanceRecord[] = attendData.data;
           const todayStr = format(new Date(), "yyyy-MM-dd");
-          const todayRecord = records.find((r) =>
-            format(new Date(r.date), "yyyy-MM-dd") === todayStr
-          );
+          const todayRecord = records.find((r) => {
+            if (r.checkInTime) {
+              const checkIn = new Date(r.checkInTime);
+              const now = new Date();
+              return checkIn.getDate() === now.getDate() &&
+                     checkIn.getMonth() === now.getMonth() &&
+                     checkIn.getFullYear() === now.getFullYear();
+            }
+            return format(new Date(r.date), "yyyy-MM-dd") === todayStr;
+          });
           if (todayRecord) {
             setTodayStatus({ marked: true, status: todayRecord.status, checkInTime: todayRecord.checkInTime });
           }
@@ -125,9 +137,11 @@ export default function EmployeeDashboard() {
           </div>
           <div className="text-right">
             <p className="text-3xl font-bold font-display tabular-nums">
-              {format(time, "hh:mm")}
+              {mounted ? format(time, "hh:mm") : "--:--"}
             </p>
-            <p className="text-primary-200 text-sm">{format(time, "ss")}s · {format(time, "a")}</p>
+            <p className="text-primary-200 text-sm">
+              {mounted ? `${format(time, "ss")}s · ${format(time, "a")}` : "--s · --"}
+            </p>
           </div>
         </div>
 

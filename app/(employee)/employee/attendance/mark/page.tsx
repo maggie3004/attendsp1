@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -24,20 +24,22 @@ export default function MarkAttendancePage() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  // Step 1: Start Camera
   const startCamera = useCallback(async () => {
     setcameraError(null);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setcameraError("Your browser does not support camera access (HTTPS is required).");
+      return;
+    }
+    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
       setStep("capture");
-    } catch (err) {
-      setcameraError("Camera access denied. Please allow camera access to mark attendance.");
+    } catch (err: any) {
+      console.error("Camera error:", err);
+      setcameraError(err?.message || "Camera access denied. Please allow camera access to mark attendance.");
     }
   }, []);
 
@@ -206,7 +208,13 @@ export default function MarkAttendancePage() {
             >
               <div className="relative rounded-3xl overflow-hidden bg-neutral-900 aspect-[4/3]">
                 <video
-                  ref={videoRef}
+                  ref={(node) => {
+                    if (node && streamRef.current) {
+                      node.srcObject = streamRef.current;
+                    }
+                    // @ts-ignore
+                    videoRef.current = node;
+                  }}
                   autoPlay
                   playsInline
                   muted
@@ -367,7 +375,7 @@ export default function MarkAttendancePage() {
                 </div>
               </div>
               <button
-                onClick={() => router.push("/employee/dashboard")}
+                onClick={() => { window.location.href = "/employee/dashboard"; }}
                 className="mobile-btn-primary"
               >
                 Back to Dashboard
@@ -396,7 +404,7 @@ export default function MarkAttendancePage() {
                   Try Again
                 </button>
                 <button
-                  onClick={() => router.push("/employee/dashboard")}
+                  onClick={() => { window.location.href = "/employee/dashboard"; }}
                   className="w-full h-12 bg-white text-text-secondary border border-border rounded-2xl font-medium text-sm"
                 >
                   Go to Dashboard

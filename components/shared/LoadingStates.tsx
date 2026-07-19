@@ -59,7 +59,7 @@ export function TableSkeleton({ rows = 5, cols = 5 }: { rows?: number; cols?: nu
             <tr key={i} className="table-row">
               {Array.from({ length: cols }).map((_, j) => (
                 <td key={j} className="table-td">
-                  <div className="skeleton h-4 rounded" style={{ width: `${60 + Math.random() * 40}%` }} />
+                  <div className="skeleton h-4 rounded" style={{ width: `${60 + ((i * 7 + j * 13) % 40)}%` }} />
                 </td>
               ))}
             </tr>

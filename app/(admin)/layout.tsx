@@ -9,21 +9,28 @@ import { cn } from "@/lib/utils";
 
 function AdminShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+    <div className="min-h-[100dvh] bg-background">
+      <Sidebar 
+        collapsed={collapsed} 
+        onToggle={() => setCollapsed(!collapsed)} 
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
+      />
       <TopNavbar
         sidebarCollapsed={collapsed}
-        onMobileMenuToggle={() => setCollapsed(!collapsed)}
+        onMobileMenuToggle={() => setMobileMenuOpen(true)}
       />
       <main
         className={cn(
           "transition-all duration-250 pt-16",
-          collapsed ? "ml-[72px]" : "ml-[260px]"
+          "lg:ml-[260px]",
+          collapsed && "lg:ml-[72px]"
         )}
       >
-        <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">{children}</div>
+        <div className="p-4 lg:p-8 max-w-[1600px] mx-auto">{children}</div>
       </main>
     </div>
   );

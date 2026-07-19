@@ -121,42 +121,44 @@ export default function LeaveRequestsPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
           {leaves.map((leave) => (
             <div key={leave.id} className="card">
-              <div className="flex items-start gap-4">
-                <Avatar name={leave.employee.user.name} image={leave.employee.user.image} size="md" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <p className="font-semibold text-text-primary">{leave.employee.user.name}</p>
-                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${leaveTypeColors[leave.leaveType] ?? "bg-neutral-100 text-neutral-600"}`}>
-                      {leave.leaveType}
-                    </span>
-                    <StatusBadge status={leave.status} />
-                  </div>
-                  <p className="text-sm text-text-secondary mt-0.5">
-                    {formatDate(leave.startDate)} – {formatDate(leave.endDate)} · {leave.totalDays} day{leave.totalDays > 1 ? "s" : ""}
-                  </p>
-                  <p className="text-sm text-text-secondary mt-1 line-clamp-2">{leave.reason}</p>
-                  <p className="text-xs text-text-muted mt-1">{timeAgo(leave.createdAt)}</p>
-
-                  {/* Rejection Note Input */}
-                  {rejectingId === leave.id && (
-                    <div className="mt-3">
-                      <input
-                        placeholder="Reason for rejection (optional)"
-                        value={rejectionNote}
-                        onChange={(e) => setRejectionNote(e.target.value)}
-                        className="input w-full max-w-sm text-sm"
-                      />
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                <div className="flex items-start gap-4 flex-1 w-full min-w-0">
+                  <Avatar name={leave.employee.user.name} image={leave.employee.user.image} size="md" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <p className="font-semibold text-text-primary">{leave.employee.user.name}</p>
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${leaveTypeColors[leave.leaveType] ?? "bg-neutral-100 text-neutral-600"}`}>
+                        {leave.leaveType}
+                      </span>
+                      <StatusBadge status={leave.status} />
                     </div>
-                  )}
+                    <p className="text-sm text-text-secondary mt-0.5">
+                      {formatDate(leave.startDate)} – {formatDate(leave.endDate)} · {leave.totalDays} day{leave.totalDays > 1 ? "s" : ""}
+                    </p>
+                    <p className="text-sm text-text-secondary mt-1 line-clamp-2">{leave.reason}</p>
+                    <p className="text-xs text-text-muted mt-1">{timeAgo(leave.createdAt)}</p>
+
+                    {/* Rejection Note Input */}
+                    {rejectingId === leave.id && (
+                      <div className="mt-3">
+                        <input
+                          placeholder="Reason for rejection (optional)"
+                          value={rejectionNote}
+                          onChange={(e) => setRejectionNote(e.target.value)}
+                          className="input w-full max-w-sm text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Actions */}
                 {leave.status === "PENDING" && (
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 w-full sm:w-auto sm:shrink-0 pt-3 sm:pt-0 border-t sm:border-0 border-border">
                     <button
                       onClick={() => handleAction(leave.id, "APPROVED")}
                       disabled={actionLoading === leave.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-success-50 text-success-700 border border-success-200 rounded-lg text-xs font-medium hover:bg-success-100 transition-colors"
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-success-50 text-success-700 border border-success-200 rounded-lg text-xs font-medium hover:bg-success-100 transition-colors"
                     >
                       <CheckCircle className="w-3.5 h-3.5" />
                       Approve
@@ -165,14 +167,14 @@ export default function LeaveRequestsPage() {
                       <button
                         onClick={() => handleAction(leave.id, "REJECTED", rejectionNote)}
                         disabled={actionLoading === leave.id}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-500 text-white rounded-lg text-xs font-medium hover:bg-danger-600 transition-colors"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-danger-500 text-white rounded-lg text-xs font-medium hover:bg-danger-600 transition-colors"
                       >
                         Confirm Reject
                       </button>
                     ) : (
                       <button
                         onClick={() => setRejectingId(leave.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-50 text-danger-700 border border-danger-200 rounded-lg text-xs font-medium hover:bg-danger-100 transition-colors"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-danger-50 text-danger-700 border border-danger-200 rounded-lg text-xs font-medium hover:bg-danger-100 transition-colors"
                       >
                         <XCircle className="w-3.5 h-3.5" />
                         Reject

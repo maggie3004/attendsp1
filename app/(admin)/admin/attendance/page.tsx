@@ -86,8 +86,8 @@ export default function AttendancePage() {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[180px] max-w-xs">
+      <div className="flex flex-col md:flex-row flex-wrap items-start md:items-center gap-3">
+        <div className="relative w-full md:flex-1 md:min-w-[180px] md:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
           <input
             placeholder="Search by employee..."
@@ -96,16 +96,18 @@ export default function AttendancePage() {
             className="input pl-9 w-full"
           />
         </div>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input w-auto">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input w-full md:w-auto">
           <option value="">All Status</option>
           <option value="PRESENT">Present</option>
           <option value="ABSENT">Absent</option>
           <option value="LATE">Late</option>
           <option value="HALF_DAY">Half Day</option>
         </select>
-        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="input w-auto" />
-        <span className="text-text-muted text-sm">to</span>
-        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="input w-auto" />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="input w-full sm:flex-1 md:w-auto" />
+          <span className="text-text-muted text-sm shrink-0 hidden sm:block">to</span>
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="input w-full sm:flex-1 md:w-auto" />
+        </div>
       </div>
 
       {loading ? (

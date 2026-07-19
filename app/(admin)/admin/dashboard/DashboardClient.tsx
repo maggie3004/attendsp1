@@ -50,11 +50,11 @@ interface StatCardProps {
 
 function StatCard({ label, value, icon: Icon, color, bgColor, change, href }: StatCardProps) {
   const content = (
-    <div className="card hover:shadow-card-hover transition-all duration-200 cursor-pointer group">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-text-secondary font-medium">{label}</p>
-          <p className="text-3xl font-bold text-text-primary mt-1 font-display">{value}</p>
+    <div className="card h-full hover:shadow-card-hover transition-all duration-200 cursor-pointer group flex flex-col justify-between">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1">
+          <p className="text-sm text-text-secondary font-medium leading-tight">{label}</p>
+          <p className="text-3xl font-bold text-text-primary mt-2 font-display">{value}</p>
           {change && (
             <p className="text-xs text-text-muted mt-1 flex items-center gap-1">
               <TrendingUp className="w-3 h-3" />
@@ -62,7 +62,7 @@ function StatCard({ label, value, icon: Icon, color, bgColor, change, href }: St
             </p>
           )}
         </div>
-        <div className={`w-11 h-11 ${bgColor} rounded-xl flex items-center justify-center`}>
+        <div className={`w-11 h-11 shrink-0 ${bgColor} rounded-xl flex items-center justify-center`}>
           <Icon className={`w-5 h-5 ${color}`} />
         </div>
       </div>
@@ -70,9 +70,9 @@ function StatCard({ label, value, icon: Icon, color, bgColor, change, href }: St
   );
 
   if (href) {
-    return <Link href={href}>{content}</Link>;
+    return <Link href={href} className="block h-full">{content}</Link>;
   }
-  return content;
+  return <div className="h-full">{content}</div>;
 }
 
 export default function AdminDashboardClient() {

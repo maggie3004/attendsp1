@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  X,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -70,9 +71,11 @@ const bottomItems = [
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }
 
-export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
@@ -81,14 +84,28 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   };
 
   return (
-    <motion.aside
-      animate={{ width: collapsed ? 72 : 260 }}
-      transition={{ duration: 0.25, ease: "easeInOut" }}
-      className="fixed left-0 top-0 h-screen bg-white border-r border-border z-30 flex flex-col overflow-hidden"
-    >
-      {/* Logo */}
-      <div className="flex items-center h-16 px-4 border-b border-border shrink-0">
-        <div className="flex items-center gap-3">
+    <>
+      {/* Mobile Backdrop */}
+      {mobileOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 z-20 lg:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+
+      <motion.aside
+        initial={false}
+        animate={{ width: collapsed ? 72 : 260 }}
+        transition={{ duration: 0.25, ease: "easeInOut" }}
+        className={cn(
+          "fixed left-0 top-0 h-[100dvh] bg-white border-r border-border z-30 flex flex-col transition-transform duration-250",
+          "max-lg:!w-[260px]",
+          mobileOpen ? "max-lg:translate-x-0" : "max-lg:-translate-x-full"
+        )}
+      >
+        {/* Logo */}
+        <div className="flex items-center h-16 px-4 border-b border-border shrink-0 justify-between">
+          <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shrink-0">
             <HardHat className="w-5 h-5 text-white" />
           </div>
@@ -111,13 +128,16 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             )}
           </AnimatePresence>
         </div>
+        <button onClick={onMobileClose} className="lg:hidden p-1 text-text-muted hover:text-text-primary">
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Toggle Button */}
       <button
         onClick={onToggle}
-        className="absolute -right-3 top-[72px] w-6 h-6 bg-white border border-border rounded-full
-                   flex items-center justify-center shadow-sm hover:bg-neutral-50 z-10 transition-colors"
+        className="hidden lg:flex absolute -right-3 top-[72px] w-6 h-6 bg-white border border-border rounded-full
+                   items-center justify-center shadow-sm hover:bg-neutral-50 z-10 transition-colors"
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         {collapsed ? (
@@ -128,7 +148,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </button>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 no-scrollbar">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-3 space-y-1 no-scrollbar">
         {!collapsed && (
           <p className="text-xs font-semibold text-text-muted uppercase tracking-wider px-3 mb-2">
             Main Menu
@@ -174,7 +194,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </nav>
 
       {/* Bottom Items */}
-      <div className="border-t border-border py-3 px-3 space-y-1">
+      <div className="border-t border-border py-3 px-3 space-y-1 shrink-0 overflow-x-hidden bg-white">
         {bottomItems.map((item) => (
           <Link
             key={item.href}
@@ -230,5 +250,6 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </button>
       </div>
     </motion.aside>
+    </>
   );
 }

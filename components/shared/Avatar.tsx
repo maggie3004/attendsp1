@@ -36,7 +36,7 @@ export default function Avatar({ name, image, size = "md", className }: AvatarPr
         src={image}
         alt={name}
         className={cn(
-          "rounded-full object-cover ring-2 ring-white",
+          "rounded-full object-cover ring-2 ring-white shrink-0",
           sizeClasses[size],
           className
         )}

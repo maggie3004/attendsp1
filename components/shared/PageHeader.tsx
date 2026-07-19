@@ -41,17 +41,17 @@ export default function PageHeader({
         </nav>
       )}
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
           {Icon && (
-            <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 shrink-0 bg-primary-50 rounded-xl flex items-center justify-center">
               <Icon className="w-5 h-5 text-primary" />
             </div>
           )}
-          <div>
-            <h1 className="text-2xl font-bold text-text-primary font-display">{title}</h1>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-text-primary font-display truncate">{title}</h1>
             {subtitle && (
-              <p className="text-sm text-text-secondary mt-0.5">{subtitle}</p>
+              <p className="text-sm text-text-secondary mt-0.5 truncate">{subtitle}</p>
             )}
           </div>
         </div>
