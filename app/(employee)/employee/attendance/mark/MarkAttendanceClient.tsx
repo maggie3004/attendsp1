@@ -16,12 +16,15 @@ type Step = "camera" | "capture" | "location" | "processing" | "success" | "erro
 // TinyFaceDetector options: faster, smaller model (193 KB vs 5.6 MB)
 const TINY_OPTS = new faceapi.TinyFaceDetectorOptions({
   inputSize: 224,      // 160 | 224 | 320 | 416 | 512 — 224 is fastest that still works well
-  scoreThreshold: 0.4, // lower = more sensitive to finding a face at all
+  scoreThreshold: 0.6, // Raised to 0.6 to reject noisy/dark face detections
 });
 
 // Euclidean distance threshold — 0.6 is the face-api recommended value
-// 0.5 was too strict (false negatives from lighting / angle changes)
-const MATCH_THRESHOLD = 0.6;
+// 0.5 makes it stricter to prevent false positives in bad lighting
+const MATCH_THRESHOLD = 0.5;
+
+// The minimum average brightness (0-255) required to capture a photo
+const MIN_BRIGHTNESS = 60;
 
 // Capture at a small size to speed up face-api processing
 const CAPTURE_WIDTH = 320;
@@ -160,6 +163,26 @@ export default function MarkAttendancePage() {
     ctx.scale(-1, 1);
     ctx.drawImage(video, -CAPTURE_WIDTH, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
     ctx.restore();
+
+    // ── Brightness Check ──
+    const imgData = ctx.getImageData(0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
+    let r, g, b, avg;
+    let colorSum = 0;
+    for (let x = 0, len = imgData.data.length; x < len; x += 4) {
+      r = imgData.data[x];
+      g = imgData.data[x + 1];
+      b = imgData.data[x + 2];
+      // Simple perceived luminance
+      avg = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);
+      colorSum += avg;
+    }
+    const brightness = Math.floor(colorSum / (CAPTURE_WIDTH * CAPTURE_HEIGHT));
+
+    if (brightness < MIN_BRIGHTNESS) {
+      setErrorMessage("Lighting is too poor. Please move to a brighter area and try again.");
+      setStep("error");
+      return;
+    }
 
     const imageData = canvas.toDataURL("image/jpeg", 0.85);
     capturedImageRef.current = imageData;
