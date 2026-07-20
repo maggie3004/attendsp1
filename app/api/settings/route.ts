@@ -14,7 +14,7 @@ async function getSettings() {
 // GET /api/settings
 export async function GET() {
   const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const settings = await getSettings();

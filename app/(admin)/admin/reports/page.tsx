@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { BarChart3, Download, FileText, Users, MapPin, Calendar } from "lucide-react";
 import { toast } from "sonner";
@@ -15,7 +15,35 @@ export default function ReportsPage() {
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [selectedEmployee, setSelectedEmployee] = useState("");
+  const [selectedSite, setSelectedSite] = useState("");
+  const [employees, setEmployees] = useState<{ id: string, name: string }[]>([]);
+  const [sites, setSites] = useState<{ id: string, name: string }[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        const [empRes, siteRes] = await Promise.all([
+          fetch("/api/employees?pageSize=1000"),
+          fetch("/api/sites?pageSize=1000")
+        ]);
+        const empData = await empRes.json();
+        const siteData = await siteRes.json();
+        
+        if (empData.success) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setEmployees(empData.data.map((e: any) => ({ id: e.id, name: e.user.name })));
+        }
+        if (siteData.success) {
+          setSites(siteData.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch options", err);
+      }
+    };
+    fetchOptions();
+  }, []);
 
   const reportTypes = [
     { id: "daily" as ReportType, label: "Daily Attendance", icon: Calendar, description: "Attendance for a specific date range" },
@@ -35,6 +63,12 @@ export default function ReportsPage() {
         const start = format(startOfMonth(new Date(month)), "yyyy-MM-dd");
         const end = format(endOfMonth(new Date(month)), "yyyy-MM-dd");
         url += `&startDate=${start}&endDate=${end}`;
+      } else if (activeReport === "employee") {
+        url += `&startDate=${startDate}&endDate=${endDate}`;
+        if (selectedEmployee) url += `&employeeId=${selectedEmployee}`;
+      } else if (activeReport === "site") {
+        url += `&startDate=${startDate}&endDate=${endDate}`;
+        if (selectedSite) url += `&siteId=${selectedSite}`;
       }
 
       const res = await fetch(url);
@@ -45,15 +79,8 @@ export default function ReportsPage() {
         return;
       }
 
-      const rows = data.data.map((a: {
-        date: string;
-        employee: { employeeCode?: string; user: { name: string }; designation?: string; department?: string };
-        status: string;
-        site: { name: string } | null;
-        checkInTime: string | null;
-        checkOutTime: string | null;
-        isManual: boolean;
-      }) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = data.data.map((a: any) => ({
         Date: formatDate(a.date),
         "Employee Code": a.employee.employeeCode ?? "-",
         "Employee Name": a.employee.user.name,
@@ -163,6 +190,38 @@ export default function ReportsPage() {
                 onChange={(e) => setMonth(e.target.value)}
                 className="input w-full max-w-xs"
               />
+            </div>
+          )}
+
+          {activeReport === "employee" && (
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">Select Employee (Optional)</label>
+              <select
+                value={selectedEmployee}
+                onChange={(e) => setSelectedEmployee(e.target.value)}
+                className="input w-full"
+              >
+                <option value="">All Employees</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {activeReport === "site" && (
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">Select Site (Optional)</label>
+              <select
+                value={selectedSite}
+                onChange={(e) => setSelectedSite(e.target.value)}
+                className="input w-full"
+              >
+                <option value="">All Sites</option>
+                {sites.map(site => (
+                  <option key={site.id} value={site.id}>{site.name}</option>
+                ))}
+              </select>
             </div>
           )}
 

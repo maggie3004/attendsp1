@@ -75,11 +75,9 @@ export default function LeaveRequestsPage() {
   };
 
   const leaveTypeColors: Record<string, string> = {
-    ANNUAL: "bg-info-50 text-info-600",
-    SICK: "bg-danger-50 text-danger-600",
-    EMERGENCY: "bg-warning-50 text-warning-600",
+    PAID: "bg-success-50 text-success-600",
     UNPAID: "bg-neutral-100 text-neutral-600",
-    OTHER: "bg-purple-50 text-purple-600",
+    ADVANCE: "bg-warning-50 text-warning-600",
   };
 
   return (
@@ -127,9 +125,13 @@ export default function LeaveRequestsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 flex-wrap">
                       <p className="font-semibold text-text-primary">{leave.employee.user.name}</p>
-                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${leaveTypeColors[leave.leaveType] ?? "bg-neutral-100 text-neutral-600"}`}>
-                        {leave.leaveType}
-                      </span>
+                      <div
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          leaveTypeColors[leave.leaveType] ?? "bg-neutral-50 text-neutral-600"
+                        }`}
+                      >
+                        {leave.leaveType === "ADVANCE" ? "Advance (Next Month)" : leave.leaveType === "PAID" ? "Paid Leave" : "Leave Without Pay"}
+                      </div>
                       <StatusBadge status={leave.status} />
                     </div>
                     <p className="text-sm text-text-secondary mt-0.5">

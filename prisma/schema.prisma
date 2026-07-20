@@ -37,11 +37,9 @@ enum AttendanceStatus {
 }
 
 enum LeaveType {
-  ANNUAL
-  SICK
-  EMERGENCY
+  PAID
   UNPAID
-  OTHER
+  ADVANCE
 }
 
 enum LeaveStatus {
@@ -167,7 +165,7 @@ model Attendance {
 model Leave {
   id           String      @id @default(cuid())
   employeeId   String
-  leaveType    LeaveType   @default(ANNUAL)
+  leaveType    LeaveType   @default(PAID)
   startDate    DateTime    @db.Date
   endDate      DateTime    @db.Date
   totalDays    Int         @default(1)

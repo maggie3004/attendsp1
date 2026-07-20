@@ -38,6 +38,7 @@ export default function EmployeeDashboard() {
   const [todayStatus, setTodayStatus] = useState<TodayStatus>({ marked: false, status: null, checkInTime: null });
   const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>([]);
   const [assignedSite, setAssignedSite] = useState<AssignedSite | null>(null);
+  const [settings, setSettings] = useState<{ workStartTime: string, workEndTime: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
@@ -55,11 +56,12 @@ export default function EmployeeDashboard() {
     if (!session) return;
     const fetchData = async () => {
       try {
-        const [attendRes, siteRes] = await Promise.all([
+        const [attendRes, siteRes, settingsRes] = await Promise.all([
           fetch(`/api/attendance?pageSize=10&employeeId=${session.user.employeeId}`, { cache: "no-store" }),
           fetch(`/api/employees/${session.user.employeeId}`, { cache: "no-store" }),
+          fetch(`/api/settings`, { cache: "no-store" }),
         ]);
-        const [attendData, empData] = await Promise.all([attendRes.json(), siteRes.json()]);
+        const [attendData, empData, settingsData] = await Promise.all([attendRes.json(), siteRes.json(), settingsRes.json()]);
 
         if (attendData.success) {
           const records: AttendanceRecord[] = attendData.data;
@@ -83,6 +85,10 @@ export default function EmployeeDashboard() {
         if (empData.success && empData.data.siteEmployees?.[0]) {
           setAssignedSite(empData.data.siteEmployees[0].site);
         }
+
+        if (settingsData.success) {
+          setSettings(settingsData.data);
+        }
       } finally {
         setLoading(false);
       }
@@ -95,6 +101,15 @@ export default function EmployeeDashboard() {
     if (hour < 12) return "Good Morning";
     if (hour < 17) return "Good Afternoon";
     return "Good Evening";
+  };
+
+  const formatShiftTime = (timeStr?: string) => {
+    if (!timeStr) return "--:--";
+    const [h, m] = timeStr.split(":");
+    let hour = parseInt(h, 10);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12 || 12;
+    return `${hour.toString().padStart(2, "0")}:${m} ${ampm}`;
   };
 
   const firstName = session?.user?.name?.split(" ")[0] ?? "there";
@@ -155,7 +170,9 @@ export default function EmployeeDashboard() {
           </div>
           <div className="flex items-center gap-2 mt-1.5">
             <Clock className="w-4 h-4 text-primary-200" />
-            <span className="text-sm text-primary-100">Shift: 09:00 AM – 06:00 PM</span>
+            <span className="text-sm text-primary-100">
+              Shift: {settings ? `${formatShiftTime(settings.workStartTime)} – ${formatShiftTime(settings.workEndTime)}` : "Loading..."}
+            </span>
           </div>
         </div>
       </motion.div>

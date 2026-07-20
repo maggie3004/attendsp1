@@ -54,7 +54,7 @@ export const createSiteSchema = z.object({
 
 // ---- Leave ----
 export const leaveRequestSchema = z.object({
-  leaveType: z.enum(["ANNUAL", "SICK", "EMERGENCY", "UNPAID", "OTHER"]),
+  leaveType: z.enum(["PAID", "UNPAID", "ADVANCE"]),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   reason: z.string().min(10, "Please provide a detailed reason (min 10 characters)"),
