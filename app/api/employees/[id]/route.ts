@@ -54,7 +54,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
   }
 
-  const { name, email, designation, department, phone, address, status } = parsed.data;
+  const { name, email, designation, department, phone, address, status, siteId } = parsed.data;
   const profileImage: string | null | undefined = body.profileImage;
 
   const employee = await prisma.employee.findUnique({
@@ -89,6 +89,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         ...(profileImage !== undefined && { faceImage: profileImage }),
       },
     }),
+    ...(siteId
+      ? [
+          prisma.siteEmployee.updateMany({
+            where: { employeeId: id, isActive: true },
+            data: { isActive: false },
+          }),
+          prisma.siteEmployee.upsert({
+            where: { siteId_employeeId: { siteId, employeeId: id } },
+            create: { siteId, employeeId: id, isActive: true },
+            update: { isActive: true },
+          }),
+        ]
+      : []),
   ]);
 
   return NextResponse.json({ data: updated, success: true });

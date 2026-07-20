@@ -129,14 +129,24 @@ export async function POST(req: NextRequest) {
   lateThreshold.setHours(startHour, startMin + sysSettings.lateThresholdMins, 0, 0);
   const isLate = today > lateThreshold;
 
+  // Look up employee's active site if not provided
+  let siteId = parsed.data.siteId;
+  if (!siteId) {
+    const employeeWithSite = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: { siteEmployees: { where: { isActive: true } } },
+    });
+    siteId = employeeWithSite?.siteEmployees[0]?.siteId;
+  }
+
   // GPS Validation — only enforce if geofence is enabled in settings
   if (sysSettings.geofenceEnabled) {
-    if (!parsed.data.siteId) {
+    if (!siteId) {
       return NextResponse.json({ error: "No site assigned. Please contact your admin." }, { status: 400 });
     }
 
     const site = await prisma.site.findUnique({
-      where: { id: parsed.data.siteId },
+      where: { id: siteId },
     });
 
     if (!site) {
@@ -167,7 +177,7 @@ export async function POST(req: NextRequest) {
   const attendance = await prisma.attendance.create({
     data: {
       employeeId,
-      siteId: parsed.data.siteId ?? null,
+      siteId: siteId ?? null,
       date: todayDate,
       checkInTime: today,
       checkInImage: parsed.data.checkInImage ?? null,

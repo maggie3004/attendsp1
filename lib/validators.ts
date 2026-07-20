@@ -38,6 +38,7 @@ export const updateEmployeeSchema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
   status: z.enum(["ACTIVE", "INACTIVE", "TERMINATED"]).optional(),
+  siteId: z.string().optional(),
 });
 
 // ---- Site ----

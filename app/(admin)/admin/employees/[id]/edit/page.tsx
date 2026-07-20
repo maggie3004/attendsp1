@@ -23,6 +23,12 @@ interface Employee {
   address: string | null;
   status: string;
   user: { name: string; email: string; image: string | null };
+  siteEmployees: Array<{ siteId: string; isActive: boolean }>;
+}
+
+interface Site {
+  id: string;
+  name: string;
 }
 
 export default function EditEmployeePage() {
@@ -35,6 +41,7 @@ export default function EditEmployeePage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [sites, setSites] = useState<Site[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -47,6 +54,12 @@ export default function EditEmployeePage() {
   });
 
   useEffect(() => {
+    fetch("/api/sites?pageSize=100")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) setSites(res.data);
+      });
+
     fetch(`/api/employees/${params.id}`)
       .then((r) => r.json())
       .then((res) => {
@@ -62,6 +75,7 @@ export default function EditEmployeePage() {
             phone: emp.phone ?? "",
             address: emp.address ?? "",
             status: emp.status as "ACTIVE" | "INACTIVE" | "TERMINATED",
+            siteId: emp.siteEmployees.find((se) => se.isActive)?.siteId ?? "",
           });
         }
       })
@@ -335,6 +349,19 @@ export default function EditEmployeePage() {
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
                 <option value="TERMINATED">Terminated</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                Assign to Site
+              </label>
+              <select className="input w-full" {...register("siteId")}>
+                <option value="">No site assigned</option>
+                {sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="sm:col-span-2">
