@@ -50,6 +50,7 @@ export default function MarkAttendancePage() {
   const [faceDescriptor, setFaceDescriptor] = useState<Float32Array | null>(null);
   const faceDescriptorRef = useRef<Float32Array | null>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [attendanceToday, setAttendanceToday] = useState<any>(null);
   const [fetchingAttendance, setFetchingAttendance] = useState(true);
 
