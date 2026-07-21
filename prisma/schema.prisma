@@ -149,6 +149,9 @@ model Attendance {
   checkInImage  String?
   checkInLat    Float?
   checkInLng    Float?
+  checkOutImage String?
+  checkOutLat   Float?
+  checkOutLng   Float?
   status        AttendanceStatus @default(PRESENT)
   notes         String?
   isManual      Boolean          @default(false)

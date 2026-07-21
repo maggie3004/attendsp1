@@ -16,6 +16,7 @@ interface TodayStatus {
   marked: boolean;
   status: string | null;
   checkInTime: string | null;
+  checkOutTime: string | null;
 }
 
 interface AttendanceRecord {
@@ -23,6 +24,7 @@ interface AttendanceRecord {
   date: string;
   status: string;
   checkInTime: string | null;
+  checkOutTime: string | null;
   site: { name: string } | null;
 }
 
@@ -35,7 +37,7 @@ interface AssignedSite {
 export default function EmployeeDashboard() {
   const { data: session } = useSession();
   const [time, setTime] = useState(new Date());
-  const [todayStatus, setTodayStatus] = useState<TodayStatus>({ marked: false, status: null, checkInTime: null });
+  const [todayStatus, setTodayStatus] = useState<TodayStatus>({ marked: false, status: null, checkInTime: null, checkOutTime: null });
   const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>([]);
   const [assignedSite, setAssignedSite] = useState<AssignedSite | null>(null);
   const [settings, setSettings] = useState<{ workStartTime: string, workEndTime: string } | null>(null);
@@ -77,7 +79,7 @@ export default function EmployeeDashboard() {
             return format(new Date(r.date), "yyyy-MM-dd") === todayStr;
           });
           if (todayRecord) {
-            setTodayStatus({ marked: true, status: todayRecord.status, checkInTime: todayRecord.checkInTime });
+            setTodayStatus({ marked: true, status: todayRecord.status, checkInTime: todayRecord.checkInTime, checkOutTime: todayRecord.checkOutTime });
           }
           setRecentAttendance(records.slice(0, 3));
         }
@@ -110,6 +112,25 @@ export default function EmployeeDashboard() {
     const ampm = hour >= 12 ? "PM" : "AM";
     hour = hour % 12 || 12;
     return `${hour.toString().padStart(2, "0")}:${m} ${ampm}`;
+  };
+
+  const calculateOvertime = () => {
+    if (!todayStatus.checkInTime || !todayStatus.checkOutTime || !settings?.workEndTime) return null;
+    
+    const checkOut = new Date(todayStatus.checkOutTime);
+    // Parse work end time to local date
+    const [endH, endM] = settings.workEndTime.split(':').map(Number);
+    const shiftEnd = new Date(todayStatus.checkOutTime);
+    shiftEnd.setHours(endH, endM, 0, 0);
+
+    const diffMs = checkOut.getTime() - shiftEnd.getTime();
+    if (diffMs <= 0) return null; // No overtime
+
+    const totalMins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    
+    return `${hours}h ${mins}m`;
   };
 
   const firstName = session?.user?.name?.split(" ")[0] ?? "there";
@@ -182,34 +203,52 @@ export default function EmployeeDashboard() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className={`rounded-2xl p-4 flex items-center gap-4 ${
+        className={`rounded-2xl p-4 flex flex-col gap-3 ${
           todayStatus.marked
             ? "bg-success-50 border border-success-200"
             : "bg-warning-50 border border-warning-200"
         }`}
       >
-        {todayStatus.marked ? (
-          <CheckCircle2 className="w-8 h-8 text-success-500 shrink-0" />
-        ) : (
-          <AlertCircle className="w-8 h-8 text-warning-500 shrink-0" />
-        )}
-        <div className="flex-1">
-          <p className="font-semibold text-text-primary text-sm">
-            {todayStatus.marked ? "Attendance Marked" : "Not Marked Yet"}
-          </p>
-          <p className="text-xs text-text-secondary mt-0.5">
-            {todayStatus.marked
-              ? `Checked in at ${todayStatus.checkInTime ? formatTime(todayStatus.checkInTime) : "--"}`
-              : "Don't forget to mark your attendance today"}
-          </p>
+        <div className="flex items-center gap-4">
+          {todayStatus.marked ? (
+            <CheckCircle2 className="w-8 h-8 text-success-500 shrink-0" />
+          ) : (
+            <AlertCircle className="w-8 h-8 text-warning-500 shrink-0" />
+          )}
+          <div className="flex-1">
+            <p className="font-semibold text-text-primary text-sm">
+              {todayStatus.marked ? "Attendance Marked" : "Not Marked Yet"}
+            </p>
+            <p className="text-xs text-text-secondary mt-0.5">
+              {todayStatus.marked
+                ? `Checked in at ${todayStatus.checkInTime ? formatTime(todayStatus.checkInTime) : "--"}`
+                : "Don't forget to mark your attendance today"}
+            </p>
+          </div>
+          {todayStatus.marked && todayStatus.status && (
+            <StatusBadge status={todayStatus.status} />
+          )}
         </div>
-        {todayStatus.marked && todayStatus.status && (
-          <StatusBadge status={todayStatus.status} />
+        
+        {/* Additional details for Check Out & Overtime */}
+        {todayStatus.marked && todayStatus.checkOutTime && (
+          <div className="pt-3 mt-1 border-t border-success-200/50 flex flex-col gap-1">
+             <div className="flex justify-between items-center text-sm">
+                <span className="text-success-800">Checked Out</span>
+                <span className="font-medium text-success-900">{formatTime(todayStatus.checkOutTime)}</span>
+             </div>
+             {calculateOvertime() && (
+               <div className="flex justify-between items-center text-sm">
+                  <span className="text-success-800">Overtime</span>
+                  <span className="font-bold text-success-900 bg-success-200/50 px-2 rounded-md">{calculateOvertime()}</span>
+               </div>
+             )}
+          </div>
         )}
       </motion.div>
 
       {/* Mark Attendance Button */}
-      {!todayStatus.marked && (
+      {(!todayStatus.marked || !todayStatus.checkOutTime) && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -220,7 +259,7 @@ export default function EmployeeDashboard() {
             className="mobile-btn-primary"
           >
             <CheckCircle2 className="w-6 h-6" />
-            Mark Attendance
+            {!todayStatus.marked ? "Check In" : "Check Out"}
           </Link>
         </motion.div>
       )}

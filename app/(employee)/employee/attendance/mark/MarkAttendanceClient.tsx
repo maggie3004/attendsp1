@@ -50,6 +50,24 @@ export default function MarkAttendancePage() {
   const [faceDescriptor, setFaceDescriptor] = useState<Float32Array | null>(null);
   const faceDescriptorRef = useRef<Float32Array | null>(null);
 
+  const [attendanceToday, setAttendanceToday] = useState<any>(null);
+  const [fetchingAttendance, setFetchingAttendance] = useState(true);
+
+  // Fetch today's attendance to see if they need to check out
+  useEffect(() => {
+    if (!session?.user?.employeeId) return;
+    const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    fetch(`/api/attendance?employeeId=${session.user.employeeId}&startDate=${todayStr}&endDate=${todayStr}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data.length > 0) {
+          setAttendanceToday(data.data[0]);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setFetchingAttendance(false));
+  }, [session]);
+
   // ─── 1. Load face-api models ─────────────────────────────────────────────
   // Use TinyFaceDetector (193 KB) instead of SSD MobileNet (5.6 MB) for speed
   useEffect(() => {
@@ -301,6 +319,43 @@ export default function MarkAttendancePage() {
     startCamera();
   }, [startCamera]);
 
+  const isCheckOut = attendanceToday && !attendanceToday.checkOutTime;
+  const isFullyCompleted = attendanceToday && attendanceToday.checkOutTime;
+
+  if (fetchingAttendance) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-sm text-text-secondary mt-2">Checking attendance status...</p>
+      </div>
+    );
+  }
+
+  if (isFullyCompleted) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <div className="flex items-center gap-3 p-4 pt-6">
+          <button onClick={() => router.back()} className="p-2 rounded-xl hover:bg-neutral-100 transition-colors">
+            <ArrowLeft className="w-5 h-5 text-text-primary" />
+          </button>
+          <h1 className="text-lg font-bold text-text-primary font-display">Attendance Completed</h1>
+        </div>
+        <div className="flex flex-col items-center justify-center flex-1 py-12 space-y-6">
+          <div className="w-24 h-24 bg-success-50 rounded-full flex items-center justify-center">
+            <CheckCircle2 className="w-14 h-14 text-success-500" />
+          </div>
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-text-primary">All Done for Today!</h2>
+            <p className="text-text-secondary text-sm mt-2 max-w-xs">You have already checked in and checked out for today.</p>
+          </div>
+          <button onClick={() => { window.location.href = "/employee/dashboard"; }} className="mobile-btn-primary w-full max-w-xs mt-4">
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ─── UI ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -316,7 +371,7 @@ export default function MarkAttendancePage() {
           <ArrowLeft className="w-5 h-5 text-text-primary" />
         </button>
         <div className="flex-1">
-          <h1 className="text-lg font-bold text-text-primary font-display">Mark Attendance</h1>
+          <h1 className="text-lg font-bold text-text-primary font-display">{isCheckOut ? "Check Out" : "Check In"}</h1>
           {loadingStatus && (
             <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1">
               {loadingStatus.startsWith("⚠️") ? (
@@ -544,7 +599,7 @@ export default function MarkAttendancePage() {
               </motion.div>
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-text-primary font-display">
-                  Attendance Marked! 🎉
+                  {isCheckOut ? "Checked Out!" : "Checked In!"} 🎉
                 </h2>
                 <p className="text-text-secondary text-sm mt-2">
                   Your attendance has been successfully recorded.
@@ -558,7 +613,7 @@ export default function MarkAttendancePage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-text-secondary">Check-in Time</span>
+                  <span className="text-sm text-text-secondary">{isCheckOut ? "Check-out Time" : "Check-in Time"}</span>
                   <span className="text-sm font-medium text-text-primary">
                     {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                   </span>
