@@ -123,8 +123,11 @@ export default function EmployeeDashboard() {
     const shiftEnd = new Date(todayStatus.checkOutTime);
     shiftEnd.setHours(endH, endM, 0, 0);
 
-    const diffMs = checkOut.getTime() - shiftEnd.getTime();
-    if (diffMs <= 0) return null; // No overtime
+    // Add 1-hour grace period (e.g. 6:30 PM becomes 7:30 PM)
+    const overtimeThreshold = new Date(shiftEnd.getTime() + 60 * 60 * 1000);
+
+    const diffMs = checkOut.getTime() - overtimeThreshold.getTime();
+    if (diffMs <= 0) return null; // No overtime if checkout is before threshold
 
     const totalMins = Math.floor(diffMs / 60000);
     const hours = Math.floor(totalMins / 60);

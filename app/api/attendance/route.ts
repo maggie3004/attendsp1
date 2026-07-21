@@ -56,21 +56,93 @@ export async function GET(req: NextRequest) {
     };
   }
 
-  const [attendances, total] = await Promise.all([
-    prisma.attendance.findMany({
-      where,
+  let attendances: any[] = [];
+  let total = 0;
+
+  // Single Date View Logic (injects ABSENT/PENDING for missing employees)
+  if (startDate && endDate && startDate === endDate) {
+    const targetDate = new Date(startDate);
+    
+    // Fetch all active employees that match the search/employee criteria
+    const empWhere: any = { status: "ACTIVE" };
+    if (effectiveEmployeeId) empWhere.id = effectiveEmployeeId;
+    if (search) empWhere.user = { name: { contains: search, mode: "insensitive" } };
+    
+    const employees = await prisma.employee.findMany({
+      where: empWhere,
       include: {
-        employee: {
-          include: { user: { select: { name: true, image: true } } },
-        },
-        site: { select: { id: true, name: true } },
+        user: { select: { name: true, image: true } },
+        siteEmployees: { where: { isActive: true }, include: { site: { select: { id: true, name: true } } } },
+        attendances: {
+          where: { date: targetDate },
+          include: { site: { select: { id: true, name: true } } }
+        }
       },
-      orderBy: { date: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    prisma.attendance.count({ where }),
-  ]);
+      orderBy: { user: { name: "asc" } },
+    });
+
+    const now = new Date();
+    const istOptions = { timeZone: "Asia/Kolkata", hour: '2-digit', hour12: false } as const;
+    const currentHourIST = parseInt(new Intl.DateTimeFormat('en-US', istOptions).format(now));
+    
+    const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+    
+    // Map employees to attendance records
+    let merged = employees.map(emp => {
+      const record = emp.attendances[0];
+      if (record) {
+        return {
+          ...record,
+          employee: { id: emp.id, user: emp.user },
+        };
+      } else {
+        let defaultStatus = "ABSENT";
+        if (startDate === todayStr) {
+           defaultStatus = currentHourIST >= 14 ? "ABSENT" : "PENDING";
+        } else if (targetDate > now) {
+           defaultStatus = "PENDING";
+        }
+
+        return {
+          id: `dummy-${emp.id}`,
+          date: targetDate,
+          status: defaultStatus,
+          checkInTime: null,
+          checkOutTime: null,
+          isManual: false,
+          employee: { id: emp.id, user: emp.user },
+          site: emp.siteEmployees[0]?.site || null,
+          siteId: emp.siteEmployees[0]?.site?.id || null,
+        };
+      }
+    });
+
+    // Apply status and site filters in-memory
+    if (status) merged = merged.filter(a => a.status === status);
+    if (siteId) merged = merged.filter(a => a.siteId === siteId);
+
+    total = merged.length;
+    attendances = merged.slice((page - 1) * pageSize, page * pageSize);
+  } else {
+    // Normal multi-date query (only shows existing DB records)
+    const [dbAttendances, dbTotal] = await Promise.all([
+      prisma.attendance.findMany({
+        where,
+        include: {
+          employee: {
+            include: { user: { select: { name: true, image: true } } },
+          },
+          site: { select: { id: true, name: true } },
+        },
+        orderBy: { date: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.attendance.count({ where }),
+    ]);
+    attendances = dbAttendances;
+    total = dbTotal;
+  }
 
   return NextResponse.json({
     data: attendances,

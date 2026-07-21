@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Search, Filter, Download, ClipboardCheck } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
+import { format } from "date-fns";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import Avatar from "@/components/shared/Avatar";
@@ -30,8 +31,8 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const debouncedSearch = useDebounce(search, 400);
 
   const fetchAttendance = useCallback(async () => {
