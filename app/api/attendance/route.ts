@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let attendances: any[] = [];
   let total = 0;
 
@@ -64,6 +65,7 @@ export async function GET(req: NextRequest) {
     const targetDate = new Date(startDate);
     
     // Fetch all active employees that match the search/employee criteria
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const empWhere: any = { status: "ACTIVE" };
     if (effectiveEmployeeId) empWhere.id = effectiveEmployeeId;
     if (search) empWhere.user = { name: { contains: search, mode: "insensitive" } };
