@@ -104,9 +104,15 @@ export default function AttendancePage() {
           <option value="HALF_DAY">Half Day</option>
         </select>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="input w-full sm:flex-1 md:w-auto" />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-sm text-text-muted w-10 sm:hidden">From</span>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="input flex-1 sm:w-[150px] md:w-auto" />
+          </div>
           <span className="text-text-muted text-sm shrink-0 hidden sm:block">to</span>
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="input w-full sm:flex-1 md:w-auto" />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-sm text-text-muted w-10 sm:hidden">To</span>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="input flex-1 sm:w-[150px] md:w-auto" />
+          </div>
         </div>
       </div>
 

@@ -73,7 +73,7 @@ function InputRow({
   max?: number;
 }) {
   return (
-    <div className="flex items-center justify-between py-3 gap-4">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-3 sm:gap-4">
       <div className="flex-1">
         <p className="text-sm font-medium text-text-primary">{label}</p>
         <p className="text-xs text-text-muted mt-0.5">{description}</p>
@@ -106,7 +106,7 @@ function ToggleRow({
   onChange: (val: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between py-3 gap-4">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-3 sm:gap-4">
       <div className="flex-1">
         <p className="text-sm font-medium text-text-primary">{label}</p>
         <p className="text-xs text-text-muted mt-0.5">{description}</p>
@@ -222,7 +222,7 @@ export default function SettingsPage() {
             value={settings.companyName}
             onChange={(v) => update("companyName", v)}
           />
-          <div className="flex items-center justify-between py-3 gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-3 sm:gap-4">
             <div className="flex-1">
               <p className="text-sm font-medium text-text-primary">Work Hours</p>
               <p className="text-xs text-text-muted mt-0.5">Standard work shift start and end time</p>
